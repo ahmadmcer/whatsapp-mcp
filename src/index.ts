@@ -1,3 +1,11 @@
+// Strictly protect stdout for JSON-RPC messages before any other modules load
+console.log = (...args: any[]) => {
+  console.error(...args);
+};
+console.info = (...args: any[]) => {
+  console.error(...args);
+};
+
 import { Command } from "commander";
 import { createMcpServer } from "./mcp/server.js";
 import { startStdioTransport } from "./mcp/transports/stdio.js";
