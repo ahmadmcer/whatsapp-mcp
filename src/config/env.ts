@@ -1,9 +1,19 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-export const WORKSPACE_ROOT = process.cwd();
+// Resolve the root directory of the whatsapp-mcp package reliably regardless of process.cwd()
+export const PACKAGE_ROOT = path.resolve(
+  __dirname,
+  path.basename(__dirname) === "dist" ? ".." : "../.."
+);
+
+export const WORKSPACE_ROOT = process.env.WHATSAPP_ROOT_DIR || PACKAGE_ROOT;
+
+dotenv.config({ path: path.join(WORKSPACE_ROOT, ".env") });
 
 export const PATHS = {
   AUTH_DIR: process.env.WHATSAPP_AUTH_DIR || path.join(WORKSPACE_ROOT, "auth_info"),
