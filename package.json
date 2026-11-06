@@ -1,0 +1,56 @@
+{
+  "name": "whatsapp-mcp",
+  "version": "1.0.0",
+  "description": "Production-grade Model Context Protocol (MCP) server for WhatsApp Web powered by Baileys",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "whatsapp-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "login": "tsx src/cli/login.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "whatsapp",
+    "baileys",
+    "ai",
+    "claude",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "better-sqlite3": "^13.0.3",
+    "commander": "^15.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "pino": "^10.4.0",
+    "qrcode-terminal": "^0.12.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
