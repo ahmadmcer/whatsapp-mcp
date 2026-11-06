@@ -9,7 +9,7 @@ console.info = (...args: any[]) => {
 import { Command } from "commander";
 import { createMcpServer } from "./mcp/server.js";
 import { startStdioTransport } from "./mcp/transports/stdio.js";
-import { startSseTransport } from "./mcp/transports/sse.js";
+import { startHttpTransport } from "./mcp/transports/http.js";
 import { baileysClient } from "./core/baileys.js";
 import { CONFIG } from "./config/env.js";
 import { logger } from "./utils/logger.js";
@@ -20,8 +20,12 @@ program
   .name(CONFIG.SERVER_NAME)
   .version(CONFIG.SERVER_VERSION)
   .description("WhatsApp Model Context Protocol (MCP) server integrated with Baileys")
-  .option("-t, --transport <type>", "MCP transport protocol: stdio or sse", CONFIG.DEFAULT_TRANSPORT)
-  .option("-p, --port <number>", "Port for SSE HTTP transport", String(CONFIG.DEFAULT_PORT))
+  .option(
+    "-t, --transport <type>",
+    "MCP transport protocol: stdio, sse, or http",
+    CONFIG.DEFAULT_TRANSPORT
+  )
+  .option("-p, --port <number>", "Port for HTTP transport (Streamable HTTP /mcp & SSE /sse)", String(CONFIG.DEFAULT_PORT))
   .action(async (options) => {
     try {
       const transportType = (options.transport || "stdio").toLowerCase();
@@ -34,16 +38,20 @@ program
         logger.error({ err }, "Initial WhatsApp socket start failed (will retry or wait for auth)");
       });
 
-      const server = createMcpServer();
+      let httpServerHandle: { close: () => Promise<void> } | undefined;
 
-      if (transportType === "sse") {
-        await startSseTransport(server, port);
+      if (transportType === "sse" || transportType === "http") {
+        httpServerHandle = await startHttpTransport(port);
       } else {
+        const server = createMcpServer();
         await startStdioTransport(server);
       }
 
       const shutdown = async () => {
         logger.info("Gracefully shutting down WhatsApp MCP server");
+        if (httpServerHandle) {
+          await httpServerHandle.close();
+        }
         process.exit(0);
       };
 
