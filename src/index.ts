@@ -45,6 +45,18 @@ program
       } else {
         const server = createMcpServer();
         await startStdioTransport(server);
+
+        // Also expose Streamable HTTP (/mcp) and SSE (/sse) on port 3000
+        // so remote devices (e.g. Galaxy A55 via Tailscale) can connect concurrently
+        try {
+          httpServerHandle = await startHttpTransport(port);
+          logger.info({ port }, "Exposed concurrent HTTP transport for remote access");
+        } catch (httpErr: any) {
+          logger.warn(
+            { err: httpErr },
+            "Could not bind HTTP port for remote access (already in use), continuing on Stdio"
+          );
+        }
       }
 
       const shutdown = async () => {
