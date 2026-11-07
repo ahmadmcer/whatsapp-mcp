@@ -38,7 +38,7 @@ export const PATHS = {
 export const CONFIG = {
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
   SERVER_NAME: "whatsapp-mcp",
-  SERVER_VERSION: "1.0.0",
+  SERVER_VERSION: "1.0.1",
   DEFAULT_PORT: Number.parseInt(process.env.PORT || "3000", 10),
   DEFAULT_TRANSPORT: (process.env.MCP_TRANSPORT || "stdio") as "stdio" | "sse" | "http",
 };

@@ -1,12 +1,12 @@
 {
   "name": "@ahmadmcer/whatsapp-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-grade Model Context Protocol (MCP) server for WhatsApp Web powered by Baileys",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "whatsapp-mcp": "./dist/index.js"
+    "whatsapp-mcp": "dist/index.js"
   },
   "files": [
     "dist"
