@@ -1,6 +1,6 @@
 {
   "name": "@ahmadmcer/whatsapp-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Production-grade Model Context Protocol (MCP) server for WhatsApp Web powered by Baileys",
   "type": "module",
   "main": "dist/index.js",
@@ -17,6 +17,8 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "login": "tsx src/cli/login.ts",
+    "status": "node dist/index.js status",
+    "stop": "node dist/index.js stop",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test"

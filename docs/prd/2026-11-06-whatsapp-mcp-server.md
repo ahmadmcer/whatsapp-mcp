@@ -3,7 +3,7 @@
 - **Status**: Approved
 - **Author**: Engineering Team
 - **Date**: 2026-11-06
-- **Target Release**: v1.0.0
+- **Target Release**: v1.0.3
 
 ---
 
@@ -12,15 +12,18 @@ AI desktop and IDE agents (Claude Desktop, Cursor, Antigravity, Cline) lack nati
 
 `whatsapp-mcp` is an open-source, production-grade Model Context Protocol (MCP) server powered by Baileys (`@whiskeysockets/baileys`). It provides rich tools for conversation retrieval, contextual message search, media decryption/dispatch, group management, and multi-device authentication with local embedded SQLite storage and built-in anti-ban safeguards.
 
+To avoid session disconnection loops caused by WhatsApp's single active WebSocket rule when multiple AI agents run simultaneously, `whatsapp-mcp` uses a **Daemon-First** architecture over Streamable HTTP (`/mcp`) and SSE (`/sse`), deprecating legacy Stdio.
+
 ## 2. Personas & Use Cases
 - **AI Agent User (Developer / Knowledge Worker)**: Wants Claude Desktop or Cursor to summarize recent WhatsApp chats, draft messages, find specific files or links shared in groups, and send messages on command.
-- **Automation / Workflow Engineer**: Wants to run WhatsApp as an MCP service in a local container or background daemon using SSE or Stdio transports for scheduled workflows.
+- **Automation / Workflow Engineer**: Wants to run WhatsApp as an MCP service in a background daemon using Streamable HTTP or SSE transports for scheduled multi-agent workflows.
 
 ## 3. Scope Boundaries
 ### In-Scope (Goals)
 - [x] Multi-device authentication via terminal interactive QR code and phone number pairing code.
 - [x] Embedded SQLite (`better-sqlite3`) database for indexing chats, contacts, messages, and handling Baileys `getMessage` retries.
-- [x] Standard `stdio` transport for desktop MCP clients and optional `sse` HTTP transport.
+- [x] Daemon-First HTTP transport (Streamable HTTP `/mcp` & legacy SSE `/sse`) with background lifecycle commands (`--daemon`, `status`, `stop`).
+- [x] Deprecated `stdio` transport for legacy compatibility.
 - [x] 19 comprehensive MCP tool primitives covering auth, chats, messages, media, contacts, and groups.
 - [x] Media decryption pipeline saving media to `data/media/` with optional base64 image data for vision models.
 - [x] Anti-ban rate limiting with realistic typing presence (`composing`) and jitter.

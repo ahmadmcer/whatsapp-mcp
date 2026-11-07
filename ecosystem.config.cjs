@@ -4,7 +4,7 @@ module.exports = {
       name: "whatsapp-mcp",
       script: "dist/index.js",
       cwd: "C:/Users/ahmad/OneDrive/Projects/MCP/whatsapp-mcp",
-      args: "--transport http --port 3000",
+      args: "--port 3000 --host 0.0.0.0",
       env: {
         NODE_ENV: "production",
       },

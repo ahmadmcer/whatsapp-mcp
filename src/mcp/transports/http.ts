@@ -5,6 +5,7 @@ import cors from "cors";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createMcpServer } from "../server.js";
+import { baileysClient } from "../../core/baileys.js";
 import { logger } from "../../utils/logger.js";
 
 export interface StartedHttpServer {
@@ -12,7 +13,11 @@ export interface StartedHttpServer {
   close: () => Promise<void>;
 }
 
-export function startHttpTransport(port: number, host = "0.0.0.0"): Promise<StartedHttpServer> {
+export function startHttpTransport(
+  port: number,
+  host = "0.0.0.0",
+  apiKey?: string
+): Promise<StartedHttpServer> {
   return new Promise((resolve) => {
     const app = express();
 
@@ -27,11 +32,43 @@ export function startHttpTransport(port: number, host = "0.0.0.0"): Promise<Star
           "mcp-protocol-version",
           "last-event-id",
           "authorization",
+          "x-api-key",
         ],
       })
     );
 
     app.use(express.json());
+
+    // Optional API key authorization middleware
+    if (apiKey && apiKey.trim().length > 0) {
+      const expectedToken = apiKey.trim();
+      app.use((req: Request, res: Response, next) => {
+        // Expose health status without requiring auth token
+        if (req.path === "/health") {
+          return next();
+        }
+
+        const authHeader = req.headers.authorization;
+        const customHeader = req.headers["x-api-key"] as string | undefined;
+        const token = authHeader?.startsWith("Bearer ")
+          ? authHeader.slice(7).trim()
+          : customHeader || authHeader?.trim();
+
+        if (!token || token !== expectedToken) {
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32000,
+              message: "Unauthorized: Invalid or missing API key token",
+            },
+            id: null,
+          });
+          return;
+        }
+
+        next();
+      });
+    }
 
     // Storage for active transport sessions
     const streamableTransports = new Map<string, StreamableHTTPServerTransport>();
@@ -115,13 +152,26 @@ export function startHttpTransport(port: number, host = "0.0.0.0"): Promise<Star
 
     // GET /mcp: Handle persistent SSE stream for server-to-client notifications
     app.get("/mcp", async (req: Request, res: Response) => {
-      const sessionId = req.headers["mcp-session-id"] as string | undefined;
-      if (!sessionId || !streamableTransports.has(sessionId)) {
-        res.status(400).send("Invalid or missing MCP-Session-Id for SSE stream.");
+      const headerSessionId = req.headers["mcp-session-id"] as string | undefined;
+      const querySessionId = req.query.sessionId as string | undefined;
+      const sessionId = headerSessionId || querySessionId;
+
+      if (!sessionId) {
+        res.status(400).send("Bad Request: Mcp-Session-Id header is required for SSE stream.");
         return;
       }
 
-      const transport = streamableTransports.get(sessionId)!;
+      const transport = streamableTransports.get(sessionId);
+      if (!transport) {
+        logger.warn({ sessionId }, "GET /mcp requested for unknown or expired session, returning 404");
+        res.status(404).json({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "Session not found" },
+          id: null,
+        });
+        return;
+      }
+
       await transport.handleRequest(req, res);
     });
 
@@ -174,7 +224,20 @@ export function startHttpTransport(port: number, host = "0.0.0.0"): Promise<Star
     // -------------------------------------------------------------
 
     app.get("/health", (_req: Request, res: Response) => {
-      res.json({ status: "healthy", timestamp: Date.now() });
+      const waStatus = baileysClient.getStatus();
+      res.json({
+        status: "healthy",
+        timestamp: Date.now(),
+        uptime: Math.floor(process.uptime()),
+        pid: process.pid,
+        transport: "http",
+        whatsapp: {
+          status: waStatus.status,
+          user: waStatus.user,
+          hasPairingCode: Boolean(waStatus.pairingCode),
+          hasQr: Boolean(waStatus.qr),
+        },
+      });
     });
 
     // Start server

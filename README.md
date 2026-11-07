@@ -1,112 +1,145 @@
 # @ahmadmcer/whatsapp-mcp
 
-> Production-grade Model Context Protocol (MCP) server integrated with WhatsApp Web via [Baileys](https://github.com/WhiskeySockets/Baileys).
+> Production-grade Model Context Protocol (MCP) server integrated with WhatsApp Web via [Baileys](https://github.com/WhiskeySockets/Baileys), engineered with a **Daemon-First** architecture.
 
 `whatsapp-mcp` allows AI assistants (such as Claude Desktop, Cursor, Antigravity, and Cline) to search and read conversations, retrieve messages with surrounding conversational context, send text and rich media (images, audio, video, documents, stickers), react with emojis, manage groups, and handle WhatsApp multi-device authentication—all running locally with zero secrets leaked.
 
 ---
 
+## Why Daemon-First? (Avoiding Stdio)
+
+WhatsApp Web enforces a strict protocol rule: **only one active WebSocket session per paired device credential**.
+
+```
+❌ The Stdio Problem (Multiple Agents Conflict):
+Agent 1 (Cursor)      --> spawns npx whatsapp-mcp (Stdio) ---> WA Socket A \_ CONFLICT LOOP!
+Agent 2 (Antigravity) --> spawns npx whatsapp-mcp (Stdio) ---> WA Socket B /  (Code 440: replaced)
+
+✔ The Daemon Solution (Centralized Shared Server):
+Agent 1 (Cursor)      ---\
+Agent 2 (Antigravity) -----> HTTP (http://127.0.0.1:3000/mcp) ---> [ whatsapp-mcp Daemon ] ---> 1 Active WA Socket
+Agent 3 (Phone/Tailscale)-/
+```
+
+Running `whatsapp-mcp` as a standalone daemon provides critical advantages:
+1. **Zero Connection Collisions**: Maintains exactly **one persistent WebSocket connection** to WhatsApp. Multiple agents connect over Streamable HTTP without kicking each other offline (`statusCode: 440 conflict: replaced`).
+2. **Centralized Anti-Ban Rate Limiter**: All outgoing messages from every agent share a single FIFO queue with randomized human typing jitter (1000–3000ms), protecting your WhatsApp account from spam detection.
+3. **Single Database Writer**: SQLite (`better-sqlite3` in WAL mode) is accessed safely by a single process, avoiding file lock contention.
+4. **Multi-Agent & Multi-Device Access**: Simultaneous access for local IDE agents, secondary laptops, and mobile devices over Tailscale or LAN.
+
+---
+
 ## Features
 
+- **Daemon-First Transport**: Powered by **Streamable HTTP** (`/mcp`, MCP Spec 2025-03-26) and legacy Server-Sent Events (`/sse`, MCP Spec 2024-11-05).
+- **Background Daemon CLI**: Start, monitor, and stop the daemon directly via `npx @ahmadmcer/whatsapp-mcp --daemon`, `status`, and `stop`.
 - **Multi-Device Authentication**: Interactive terminal login supporting both ASCII QR code scanning and phone number pairing codes.
-- **Embedded SQLite Storage**: Built on `better-sqlite3` with WAL mode. Messages, chats, contacts, and groups are indexed locally, powering instant queries, FTS5 full-text search, and fulfilling Baileys' cryptographic Signal retry lookups (`getMessage`).
-- **Concurrent Dual-Mode Transport**: Works seamlessly over standard `stdio` (default for desktop clients) while simultaneously exposing **Streamable HTTP** (`/mcp`, MCP Spec 2025-03-26) and Server-Sent Events (`/sse`, MCP Spec 2024-11-05) on port 3000 for remote devices (e.g. mobile phones, secondary laptops via Tailscale/LAN).
-- **Safety & Anti-Ban Rate Limiter**: Automatically simulates human typing presence (`composing`) with 1000–3000ms randomized jitter before sending messages. All mutating tools include an optional `dryRun` mode.
-- **Rich Media Pipeline**: Automatically decrypts and caches incoming images, audio, video, and documents to `./data/media/`. Includes base64 data URIs for images under 1MB to support multimodal vision models.
-- **Strict Protocol Integrity**: Standard output (`stdout`) is strictly reserved for MCP JSON-RPC protocol frames. All logs and Baileys debug traces are diverted to `stderr` and `./logs/whatsapp-mcp.log`.
+- **Embedded SQLite Storage**: Built on `better-sqlite3` with WAL mode. Messages, chats, contacts, and groups are indexed locally, powering instant queries, FTS5 full-text search, and fulfilling Baileys' Signal retry lookups (`getMessage`).
+- **Safety & Anti-Ban Rate Limiter**: Simulates human typing presence (`composing`) with 1000–3000ms randomized jitter before sending messages. All mutating tools include an optional `dryRun` mode.
+- **Optional Endpoint Security**: Secure your `/mcp` endpoint with `--api-key <token>` or `MCP_API_KEY` for remote/public network deployments.
+- **Rich Media Pipeline**: Automatically decrypts and caches incoming images, audio, video, and documents to `./data/media/`. Includes base64 data URIs for images under 1MB.
 
 ---
 
 ## Quick Start
 
-### 1. Run Directly with `npx` (Recommended)
+### 1. Authenticate with WhatsApp
 
-You can run `whatsapp-mcp` directly without manually cloning the repository:
+Pair your WhatsApp account once (stored securely in `~/.whatsapp-mcp/auth_info/`):
 
 ```bash
-# Start in default stdio mode (and concurrent HTTP port 3000)
-npx -y @ahmadmcer/whatsapp-mcp
+# Instant interactive login (supports ASCII QR code & phone pairing code)
+npx -y @ahmadmcer/whatsapp-mcp login
+```
 
-# Or start as a dedicated HTTP server on a custom port
-npx -y @ahmadmcer/whatsapp-mcp --transport http --port 3000
+Choose your preferred pairing method:
+1. **Scan QR Code**: Scan the ASCII QR code printed directly in your terminal using WhatsApp on your phone (`Settings` -> `Linked Devices` -> `Link a Device`).
+2. **Pairing Code**: Enter your phone number with country code (e.g. `628123456789`) to receive an 8-digit pairing code to enter on your phone.
+
+---
+
+### 2. Start the Server Daemon
+
+You can run the server either as a detached background daemon or in foreground:
+
+#### Option A: Background Daemon (Recommended)
+
+```bash
+# Start server in background (binds to 0.0.0.0:3000)
+npx -y @ahmadmcer/whatsapp-mcp --daemon
+
+# Check running status, PID, uptime, and WhatsApp connection state
+npx -y @ahmadmcer/whatsapp-mcp status
+
+# Stop background daemon
+npx -y @ahmadmcer/whatsapp-mcp stop
+```
+
+#### Option B: Foreground Server
+
+Ideal for containers (Docker), debugging, or custom process supervisors:
+
+```bash
+npx -y @ahmadmcer/whatsapp-mcp
+```
+
+#### Option C: Process Manager (PM2)
+
+For production auto-restart on boot:
+
+```bash
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+---
+
+## CLI Options & Flags
+
+```
+Usage: whatsapp-mcp [options] [command]
+
+Options:
+  -V, --version           output the version number
+  -d, --daemon            Run server as a detached background daemon process
+  -p, --port <number>     Port for HTTP daemon (default: 3000)
+  -H, --host <address>    Host address to bind HTTP daemon (default: "0.0.0.0")
+  -k, --api-key <token>   Optional API key token required in Authorization or x-api-key header
+  -t, --transport <type>  MCP transport protocol: http (default), sse, or stdio (deprecated)
+  -h, --help              display help for command
+
+Commands:
+  status [options]        Check the running status of the WhatsApp MCP background daemon
+  stop                    Stop the running WhatsApp MCP background daemon process
+  login                   Interactive terminal login for WhatsApp Web
 ```
 
 > **Data Persistence**: When launched via `npx`, authentication keys and database storage automatically persist safely in `~/.whatsapp-mcp/` across sessions and package updates.
 
 ---
 
-### 2. Manual Installation & Development
-
-```bash
-# Clone the repository
-git clone https://github.com/ahmadmcer/whatsapp-mcp.git
-cd whatsapp-mcp
-
-# Install dependencies
-npm install
-
-# Build TypeScript to dist/
-npm run build
-```
-
-### 3. Authenticate with WhatsApp
-
-You can log in either via **`npx`** (instant, no clone needed) or via **npm**:
-
-```bash
-# Instant interactive login via npx (supports ASCII QR code & phone pairing code)
-npx -y @ahmadmcer/whatsapp-mcp login
-
-# Or if running from source:
-npm run login
-```
-
-Choose your preferred pairing method:
-1. **Scan QR Code**: Scan the ASCII QR code printed directly in your terminal using WhatsApp on your phone (`Settings` -> `Linked Devices` -> `Link a Device`).
-2. **Pairing Code**: Enter your phone number with country code (e.g. `15551234567`) to receive an 8-digit pairing code to enter on your phone.
-
-Credentials are saved securely in `./auth_info/` (or `~/.whatsapp-mcp/auth_info/` when run via `npx`). Once paired, subsequent runs connect automatically without re-authenticating.
-
----
-
 ## MCP Client Configuration
 
-### Claude Desktop
-
-Add `whatsapp-mcp` to your `claude_desktop_config.json`:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "whatsapp": {
-      "command": "npx",
-      "args": ["-y", "@ahmadmcer/whatsapp-mcp"]
-    }
-  }
-}
-```
+Connect your AI assistants directly to the running HTTP daemon URL:
 
 ### Antigravity / Cursor
 
-In your MCP configuration (`~/.gemini/config/mcp_config.json` or Cursor Settings):
+In your MCP settings (`~/.gemini/config/mcp_config.json` or Cursor Settings):
 
-#### Option A: Local Process (Stdio)
 ```json
 {
   "mcpServers": {
     "whatsapp": {
-      "command": "npx",
-      "args": ["-y", "@ahmadmcer/whatsapp-mcp"]
+      "serverUrl": "http://127.0.0.1:3000/mcp"
     }
   }
 }
 ```
 
-#### Option B: Remote / Network Endpoint (Streamable HTTP)
-If the server is running on a host machine (e.g. over Tailscale or local network):
+### Remote / Tailscale Access
+
+If the daemon is running on another machine (e.g. PC at home, accessed from a laptop or mobile phone):
+
 ```json
 {
   "mcpServers": {
@@ -116,6 +149,64 @@ If the server is running on a host machine (e.g. over Tailscale or local network
   }
 }
 ```
+
+### With Optional API Key Authentication
+
+If you launched the daemon with `--api-key my-secret-token` (or `MCP_API_KEY=my-secret-token`):
+
+```json
+{
+  "mcpServers": {
+    "whatsapp": {
+      "serverUrl": "http://127.0.0.1:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer my-secret-token"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Claude Desktop natively connects to HTTP/SSE servers or via proxy:
+
+```json
+{
+  "mcpServers": {
+    "whatsapp": {
+      "serverUrl": "http://127.0.0.1:3000/mcp"
+    }
+  }
+}
+```
+
+---
+
+## Diagnostic Endpoints
+
+The HTTP server exposes a built-in health & diagnostic endpoint:
+
+- **GET `/health`**: Returns daemon uptime, process ID, and WhatsApp connection status.
+  ```json
+  {
+    "status": "healthy",
+    "timestamp": 1730998800000,
+    "uptime": 3600,
+    "pid": 27888,
+    "transport": "http",
+    "whatsapp": {
+      "status": "connected",
+      "user": {
+        "jid": "628123456789@s.whatsapp.net",
+        "name": "Ahmad",
+        "phoneNumber": "628123456789"
+      },
+      "hasPairingCode": false,
+      "hasQr": false
+    }
+  }
+  ```
 
 ---
 
@@ -163,45 +254,6 @@ If the server is running on a host machine (e.g. over Tailscale or local network
 | `create_group` | Creates a new group with specified members | `subject: string`, `participants: string[]` |
 | `manage_group_participants` | Adds, removes, promotes, or demotes group participants | `groupJid: string`, `action: 'add'\|'remove'\|'promote'\|'demote'`, `participants: string[]` |
 | `get_group_invite_link` | Retrieves or regenerates group invite link | `groupJid: string`, `revoke?: boolean` |
-
----
-
-## Architecture & Security
-
-```
-┌────────────────────────────────────────────────────────┐
-│                      MCP Client                        │
-│            (Claude Desktop / Cursor / IDE)             │
-└──────────────────────────┬─────────────────────────────┘
-                           │ JSON-RPC (stdio / /mcp / /sse)
-┌──────────────────────────▼─────────────────────────────┐
-│                   whatsapp-mcp                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │                MCP Tool Registry                 │  │
-│  └───────────────────────┬──────────────────────────┘  │
-│                          │                             │
-│  ┌───────────────────────▼──────────────────────────┐  │
-│  │    Rate Limiter Queue & Typing Jitter Simulator  │  │
-│  └───────────────────────┬──────────────────────────┘  │
-│                          │                             │
-│  ┌───────────────────────▼──────────────────────────┐  │
-│  │             Baileys Socket Manager               │  │
-│  └──────────┬───────────────────────────┬───────────┘  │
-│             │                           │              │
-│  ┌──────────▼───────────────┐ ┌─────────▼───────────┐  │
-│  │  SQLite (better-sqlite3) │ │ Media Cache Manager │  │
-│  │   Chats, Msgs, FTS5 FTS  │ │    ./data/media/    │  │
-│  └──────────────────────────┘ └─────────────────────┘  │
-└──────────────────────────┬─────────────────────────────┘
-                           │ TLS WebSocket
-┌──────────────────────────▼─────────────────────────────┐
-│               WhatsApp Multi-Device API                │
-└────────────────────────────────────────────────────────┘
-```
-
-- **Zero Secret Exposure**: Authentication credentials in `./auth_info/` or `~/.whatsapp-mcp/auth_info/` are never returned in MCP tool outputs and are strictly protected via `.gitignore`.
-- **Directory Traversal Protection**: Inbound and outbound media file operations strictly validate filesystem boundaries against `./data/media/`.
-- **Safe JSON-RPC Streams**: All log streams write exclusively to `stderr` and disk, preventing any corruption of `stdout`.
 
 ---
 

@@ -16,12 +16,16 @@ describe("HTTP & Streamable MCP Transport (/mcp, /sse, /health)", () => {
     }
   });
 
-  it("serves healthy status on GET /health", async () => {
+  it("serves healthy status and diagnostic info on GET /health", async () => {
     const res = await fetch(`${BASE_URL}/health`);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe("healthy");
     expect(data.timestamp).toBeDefined();
+    expect(data.pid).toBeDefined();
+    expect(data.uptime).toBeDefined();
+    expect(data.whatsapp).toBeDefined();
+    expect(data.whatsapp.status).toBeDefined();
   });
 
   it("handles Streamable HTTP handshake on POST /mcp and lists tools", async () => {
@@ -115,5 +119,49 @@ describe("HTTP & Streamable MCP Transport (/mcp, /sse, /health)", () => {
     const body = await res.json();
     expect(body.error).toBeDefined();
     expect(body.error.message).toContain("Mcp-Session-Id");
+  });
+
+  it("enforces optional API key authentication when configured", async () => {
+    const AUTH_PORT = 3898;
+    const authServer = await startHttpTransport(AUTH_PORT, "127.0.0.1", "secret-test-token-123");
+
+    try {
+      // 1. GET /health should still be accessible without token
+      const healthRes = await fetch(`http://localhost:${AUTH_PORT}/health`);
+      expect(healthRes.status).toBe(200);
+
+      // 2. POST /mcp without token should fail with 401
+      const unauthRes = await fetch(`http://localhost:${AUTH_PORT}/mcp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+      });
+      expect(unauthRes.status).toBe(401);
+      const unauthJson = await unauthRes.json();
+      expect(unauthJson.error.message).toContain("Unauthorized");
+
+      // 3. POST /mcp with Bearer token should succeed
+      const authRes = await fetch(`http://localhost:${AUTH_PORT}/mcp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          Authorization: "Bearer secret-test-token-123",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2024-11-05",
+            capabilities: {},
+            clientInfo: { name: "auth-test", version: "1.0" },
+          },
+        }),
+      });
+      expect(authRes.status).toBe(200);
+    } finally {
+      await authServer.close();
+    }
   });
 });

@@ -33,12 +33,15 @@ export const PATHS = {
   LOGS_DIR: process.env.WHATSAPP_LOGS_DIR || path.join(WORKSPACE_ROOT, "logs"),
   DB_FILE: process.env.WHATSAPP_DB_FILE || path.join(WORKSPACE_ROOT, "data", "whatsapp.db"),
   LOG_FILE: path.join(WORKSPACE_ROOT, "logs", "whatsapp-mcp.log"),
+  PID_FILE: process.env.WHATSAPP_PID_FILE || path.join(WORKSPACE_ROOT, "whatsapp-mcp.pid"),
 };
 
 export const CONFIG = {
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
   SERVER_NAME: "whatsapp-mcp",
-  SERVER_VERSION: "1.0.2",
+  SERVER_VERSION: "1.0.3",
   DEFAULT_PORT: Number.parseInt(process.env.PORT || "3000", 10),
-  DEFAULT_TRANSPORT: (process.env.MCP_TRANSPORT || "stdio") as "stdio" | "sse" | "http",
+  DEFAULT_HOST: process.env.HOST || "0.0.0.0",
+  DEFAULT_TRANSPORT: (process.env.MCP_TRANSPORT || "http") as "http" | "sse" | "stdio",
+  API_KEY: process.env.MCP_API_KEY || process.env.WHATSAPP_MCP_TOKEN || "",
 };
