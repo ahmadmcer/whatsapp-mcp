@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-mcp",
+  "name": "@ahmadmcer/whatsapp-mcp",
   "version": "1.0.0",
   "description": "Production-grade Model Context Protocol (MCP) server for WhatsApp Web powered by Baileys",
   "type": "module",
@@ -17,7 +17,19 @@
     "start": "node dist/index.js",
     "login": "tsx src/cli/login.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmadmcer/whatsapp-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ahmadmcer/whatsapp-mcp/issues"
+  },
+  "homepage": "https://github.com/ahmadmcer/whatsapp-mcp#readme",
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "mcp",
@@ -26,9 +38,11 @@
     "baileys",
     "ai",
     "claude",
-    "automation"
+    "automation",
+    "agentic-ai",
+    "antigravity"
   ],
-  "author": "",
+  "author": "Ahmad <ahmadmcer@users.noreply.github.com>",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

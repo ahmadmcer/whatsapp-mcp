@@ -1,4 +1,4 @@
-# whatsapp-mcp
+# @ahmadmcer/whatsapp-mcp
 
 > Production-grade Model Context Protocol (MCP) server integrated with WhatsApp Web via [Baileys](https://github.com/WhiskeySockets/Baileys).
 
@@ -10,7 +10,7 @@
 
 - **Multi-Device Authentication**: Interactive terminal login supporting both ASCII QR code scanning and phone number pairing codes.
 - **Embedded SQLite Storage**: Built on `better-sqlite3` with WAL mode. Messages, chats, contacts, and groups are indexed locally, powering instant queries, FTS5 full-text search, and fulfilling Baileys' cryptographic Signal retry lookups (`getMessage`).
-- **Multi-Transport Support**: Works seamlessly over standard `stdio` (default for desktop clients) or Server-Sent Events (`sse`) HTTP mode for background/headless instances.
+- **Concurrent Dual-Mode Transport**: Works seamlessly over standard `stdio` (default for desktop clients) while simultaneously exposing **Streamable HTTP** (`/mcp`, MCP Spec 2025-03-26) and Server-Sent Events (`/sse`, MCP Spec 2024-11-05) on port 3000 for remote devices (e.g. mobile phones, secondary laptops via Tailscale/LAN).
 - **Safety & Anti-Ban Rate Limiter**: Automatically simulates human typing presence (`composing`) with 1000–3000ms randomized jitter before sending messages. All mutating tools include an optional `dryRun` mode.
 - **Rich Media Pipeline**: Automatically decrypts and caches incoming images, audio, video, and documents to `./data/media/`. Includes base64 data URIs for images under 1MB to support multimodal vision models.
 - **Strict Protocol Integrity**: Standard output (`stdout`) is strictly reserved for MCP JSON-RPC protocol frames. All logs and Baileys debug traces are diverted to `stderr` and `./logs/whatsapp-mcp.log`.
@@ -19,15 +19,27 @@
 
 ## Quick Start
 
-### 1. Prerequisites
-- **Node.js** v20+
-- **npm** v10+
+### 1. Run Directly with `npx` (Recommended)
 
-### 2. Installation & Build
+You can run `whatsapp-mcp` directly without manually cloning the repository:
+
+```bash
+# Start in default stdio mode (and concurrent HTTP port 3000)
+npx -y @ahmadmcer/whatsapp-mcp
+
+# Or start as a dedicated HTTP server on a custom port
+npx -y @ahmadmcer/whatsapp-mcp --transport http --port 3000
+```
+
+> **Data Persistence**: When launched via `npx`, authentication keys and database storage automatically persist safely in `~/.whatsapp-mcp/` across sessions and package updates.
+
+---
+
+### 2. Manual Installation & Development
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/whatsapp-mcp.git
+git clone https://github.com/ahmadmcer/whatsapp-mcp.git
 cd whatsapp-mcp
 
 # Install dependencies
@@ -49,7 +61,7 @@ Choose your preferred pairing method:
 1. **Scan QR Code**: Scan the ASCII QR code printed directly in your terminal using WhatsApp on your phone (`Settings` -> `Linked Devices` -> `Link a Device`).
 2. **Pairing Code**: Enter your phone number with country code (e.g. `15551234567`) to receive an 8-digit pairing code to enter on your phone.
 
-Credentials are saved securely in `./auth_info/`. Once paired, subsequent runs connect automatically without re-authenticating.
+Credentials are saved securely in `./auth_info/` (or `~/.whatsapp-mcp/auth_info/` when run via `npx`). Once paired, subsequent runs connect automatically without re-authenticating.
 
 ---
 
@@ -66,37 +78,40 @@ Add `whatsapp-mcp` to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "whatsapp": {
-      "command": "node",
-      "args": ["c:/Users/ahmad/OneDrive/Projects/MCP/whatsapp-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@ahmadmcer/whatsapp-mcp"]
     }
   }
 }
 ```
 
-### Cursor / Antigravity
+### Antigravity / Cursor
 
-In your MCP settings or `agy` MCP configuration:
+In your MCP configuration (`~/.gemini/config/mcp_config.json` or Cursor Settings):
 
+#### Option A: Local Process (Stdio)
 ```json
 {
   "mcpServers": {
     "whatsapp": {
-      "command": "node",
-      "args": ["c:/Users/ahmad/OneDrive/Projects/MCP/whatsapp-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@ahmadmcer/whatsapp-mcp"]
     }
   }
 }
 ```
 
-### Running as a Background Daemon (SSE Transport)
-
-To run as an HTTP server accessible via SSE:
-
-```bash
-node dist/index.js --transport sse --port 3000
+#### Option B: Remote / Network Endpoint (Streamable HTTP)
+If the server is running on a host machine (e.g. over Tailscale or local network):
+```json
+{
+  "mcpServers": {
+    "whatsapp": {
+      "serverUrl": "http://100.89.190.38:3000/mcp"
+    }
+  }
+}
 ```
-- SSE endpoint: `http://localhost:3000/sse`
-- Health check: `http://localhost:3000/health`
 
 ---
 
@@ -154,7 +169,7 @@ node dist/index.js --transport sse --port 3000
 │                      MCP Client                        │
 │            (Claude Desktop / Cursor / IDE)             │
 └──────────────────────────┬─────────────────────────────┘
-                           │ JSON-RPC (stdio / SSE)
+                           │ JSON-RPC (stdio / /mcp / /sse)
 ┌──────────────────────────▼─────────────────────────────┐
 │                   whatsapp-mcp                         │
 │  ┌──────────────────────────────────────────────────┐  │
@@ -180,7 +195,7 @@ node dist/index.js --transport sse --port 3000
 └────────────────────────────────────────────────────────┘
 ```
 
-- **Zero Secret Exposure**: Authentication credentials in `./auth_info/` are never returned in MCP tool outputs and are protected via `.gitignore`.
+- **Zero Secret Exposure**: Authentication credentials in `./auth_info/` or `~/.whatsapp-mcp/auth_info/` are never returned in MCP tool outputs and are strictly protected via `.gitignore`.
 - **Directory Traversal Protection**: Inbound and outbound media file operations strictly validate filesystem boundaries against `./data/media/`.
 - **Safe JSON-RPC Streams**: All log streams write exclusively to `stderr` and disk, preventing any corruption of `stdout`.
 
@@ -198,4 +213,4 @@ npm run test
 
 ## License
 
-MIT
+MIT © [Ahmad](https://github.com/ahmadmcer)
