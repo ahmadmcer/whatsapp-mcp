@@ -3,10 +3,10 @@ import qrcode from "qrcode-terminal";
 import { baileysClient } from "../core/baileys.js";
 import { logger } from "../utils/logger.js";
 
-async function runInteractiveLogin() {
-  console.log("\n=======================================================");
-  console.log("      WhatsApp MCP Server - Interactive Login");
-  console.log("=======================================================\n");
+export async function runInteractiveLogin() {
+  console.error("\n=======================================================");
+  console.error("      WhatsApp MCP Server - Interactive Login");
+  console.error("=======================================================\n");
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -25,17 +25,17 @@ async function runInteractiveLogin() {
 
   baileysClient.on("qr", (qr) => {
     if (!usePairingCode) {
-      console.log("\nScan this QR code with WhatsApp (Settings -> Linked Devices -> Link a Device):\n");
+      console.error("\nScan this QR code with WhatsApp (Settings -> Linked Devices -> Link a Device):\n");
       qrcode.generate(qr, { small: true });
     }
   });
 
   baileysClient.on("connected", (user) => {
-    console.log("\n[SUCCESS] Successfully linked with WhatsApp!");
-    console.log(`Linked Phone: ${user.phoneNumber || user.jid}`);
-    if (user.name) console.log(`Account Name: ${user.name}`);
-    console.log("\nCredentials saved to auth_info/ directory.");
-    console.log("You can now start the MCP server or connect it to Claude Desktop / Cursor.\n");
+    console.error("\n[SUCCESS] Successfully linked with WhatsApp!");
+    console.error(`Linked Phone: ${user.phoneNumber || user.jid}`);
+    if (user.name) console.error(`Account Name: ${user.name}`);
+    console.error("\nCredentials saved securely.");
+    console.error("You can now start the MCP server or connect it to Claude Desktop / Cursor / Antigravity.\n");
     rl.close();
     process.exit(0);
   });
@@ -44,7 +44,7 @@ async function runInteractiveLogin() {
     logger.debug({ status }, "Login status changed");
   });
 
-  console.log("\nInitializing WhatsApp connection...");
+  console.error("\nInitializing WhatsApp connection...");
   await baileysClient.start();
 
   if (usePairingCode) {
@@ -53,15 +53,15 @@ async function runInteractiveLogin() {
     );
 
     try {
-      console.log("\nRequesting pairing code from WhatsApp...");
+      console.error("\nRequesting pairing code from WhatsApp...");
       const code = await baileysClient.requestPairingCode(phoneInput.trim());
-      console.log("\n-------------------------------------------------------");
-      console.log(`  YOUR PAIRING CODE:  ${code}`);
-      console.log("-------------------------------------------------------");
-      console.log("\nOn your phone:");
-      console.log("1. Open WhatsApp -> Settings -> Linked Devices -> Link a Device");
-      console.log("2. Tap 'Link with phone number instead'");
-      console.log(`3. Enter the 8-digit code: ${code}\n`);
+      console.error("\n-------------------------------------------------------");
+      console.error(`  YOUR PAIRING CODE:  ${code}`);
+      console.error("-------------------------------------------------------");
+      console.error("\nOn your phone:");
+      console.error("1. Open WhatsApp -> Settings -> Linked Devices -> Link a Device");
+      console.error("2. Tap 'Link with phone number instead'");
+      console.error(`3. Enter the 8-digit code: ${code}\n`);
     } catch (err: any) {
       console.error(`\n[ERROR] Failed to obtain pairing code: ${err.message}`);
       rl.close();
@@ -70,7 +70,13 @@ async function runInteractiveLogin() {
   }
 }
 
-runInteractiveLogin().catch((err) => {
-  console.error("Fatal login error:", err);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1] &&
+  (process.argv[1].endsWith("login.ts") || process.argv[1].endsWith("login.js"));
+
+if (isDirectRun) {
+  runInteractiveLogin().catch((err) => {
+    console.error("Fatal login error:", err);
+    process.exit(1);
+  });
+}

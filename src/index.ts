@@ -10,6 +10,7 @@ import { Command } from "commander";
 import { createMcpServer } from "./mcp/server.js";
 import { startStdioTransport } from "./mcp/transports/stdio.js";
 import { startHttpTransport } from "./mcp/transports/http.js";
+import { runInteractiveLogin } from "./cli/login.js";
 import { baileysClient } from "./core/baileys.js";
 import { CONFIG } from "./config/env.js";
 import { logger } from "./utils/logger.js";
@@ -71,6 +72,18 @@ program
       process.on("SIGTERM", shutdown);
     } catch (err: any) {
       logger.error({ err }, "Fatal error starting WhatsApp MCP server");
+      process.exit(1);
+    }
+  });
+
+program
+  .command("login")
+  .description("Interactive terminal login for WhatsApp Web (QR code or pairing code)")
+  .action(async () => {
+    try {
+      await runInteractiveLogin();
+    } catch (err: any) {
+      console.error("Login failed:", err);
       process.exit(1);
     }
   });

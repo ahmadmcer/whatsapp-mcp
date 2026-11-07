@@ -51,9 +51,13 @@ npm run build
 
 ### 3. Authenticate with WhatsApp
 
-Run the interactive login command:
+You can log in either via **`npx`** (instant, no clone needed) or via **npm**:
 
 ```bash
+# Instant interactive login via npx (supports ASCII QR code & phone pairing code)
+npx -y @ahmadmcer/whatsapp-mcp login
+
+# Or if running from source:
 npm run login
 ```
 
