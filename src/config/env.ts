@@ -1,17 +1,28 @@
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Resolve the root directory of the whatsapp-mcp package reliably regardless of process.cwd()
+// Resolve the root directory of the whatsapp-mcp package
 export const PACKAGE_ROOT = path.resolve(
   __dirname,
   path.basename(__dirname) === "dist" ? ".." : "../.."
 );
 
-export const WORKSPACE_ROOT = process.env.WHATSAPP_ROOT_DIR || PACKAGE_ROOT;
+// If installed inside node_modules or global npm cache, store persistent user data in ~/.whatsapp-mcp
+const isInstalledInNodeModules =
+  PACKAGE_ROOT.includes("node_modules") ||
+  PACKAGE_ROOT.includes("npm-cache") ||
+  PACKAGE_ROOT.includes(".npm");
+
+export const DEFAULT_PERSISTENT_DIR = isInstalledInNodeModules
+  ? path.join(os.homedir(), ".whatsapp-mcp")
+  : PACKAGE_ROOT;
+
+export const WORKSPACE_ROOT = process.env.WHATSAPP_ROOT_DIR || DEFAULT_PERSISTENT_DIR;
 
 dotenv.config({ path: path.join(WORKSPACE_ROOT, ".env") });
 
@@ -29,5 +40,5 @@ export const CONFIG = {
   SERVER_NAME: "whatsapp-mcp",
   SERVER_VERSION: "1.0.0",
   DEFAULT_PORT: Number.parseInt(process.env.PORT || "3000", 10),
-  DEFAULT_TRANSPORT: (process.env.MCP_TRANSPORT || "stdio") as "stdio" | "sse",
+  DEFAULT_TRANSPORT: (process.env.MCP_TRANSPORT || "stdio") as "stdio" | "sse" | "http",
 };
